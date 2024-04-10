@@ -1,0 +1,215 @@
+---
+title: "COVID_Proj"
+author: "Lily Kraus"
+date: "2024-03-21"
+output: html_document
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(readr)
+library(lubridate)
+
+covid_2018 <- read_rds("../data/nibrs_offense_segment_2018.rds")
+covid_2019 <- read_rds("../data/nibrs_offense_segment_2019.rds")
+covid_2020 <- read_rds("../data/nibrs_offense_segment_2020.rds")
+covid_2021 <- read_rds("../data/nibrs_offense_segment_2021.rds")
+covid_2022 <- read_rds("../data/nibrs_offense_segment_2022.rds")
+
+#temp <- covid_2022 %>% filter(ucr_offense_code == "murder/nonnegligent manslaughter")
+
+# Create a function that filters based on desired UCR offense code
+filt_function <- function(data, offense_code) {
+  filtered_data <- data %>% filter(ucr_offense_code == offense_code)
+  return(filtered_data)
+}
+
+# Apply the filter function to each of the original data sets
+filtered_covid_2018 <- filt_function(covid_2018, "murder/nonnegligent manslaughter")
+rm(covid_2018)
+
+filtered_covid_2019 <- filt_function(covid_2019, "murder/nonnegligent manslaughter")
+rm(covid_2019)
+
+filtered_covid_2020 <- filt_function(covid_2020, "murder/nonnegligent manslaughter")
+rm(covid_2020)
+
+filtered_covid_2021 <- filt_function(covid_2021, "murder/nonnegligent manslaughter")
+rm(covid_2021)
+
+filtered_covid_2022 <- filt_function(covid_2022, "murder/nonnegligent manslaughter")
+rm(covid_2022)
+
+# Read in ORI data
+#FSTATE and FPLACE together are geoid!
+ORI_data <- read.delim("../data/ORI_Data.tsv", header = TRUE)
+
+# Select desired columns from ORI data
+just_ORI <- ORI_data %>% select(ORI9,NAME,STATENAME,COUNTYNAME,ADDRESS_CITY)
+just_ORI <- ORI_data %>% dplyr::select(ORI9, NAME, STATENAME, COUNTYNAME, ADDRESS_CITY)
+
+# Merging the yearly crime data with the ORI data
+merged_2018 <- filtered_covid_2018 %>% left_join(just_ORI, by = c("ori" = "ORI9"))
+merged_2019 <- filtered_covid_2019 %>% left_join(just_ORI, by = c("ori" = "ORI9"))
+merged_2020 <- filtered_covid_2020 %>% left_join(just_ORI, by = c("ori" = "ORI9"))
+merged_2021 <- filtered_covid_2021 %>% left_join(just_ORI, by = c("ori" = "ORI9"))
+merged_2022 <- filtered_covid_2022 %>% left_join(just_ORI, by = c("ori" = "ORI9"))
+
+# Formatting and creating desired date-related columns
+merged_2018$incident_date <- as.Date(merged_2018$incident_date)
+merged_2019$incident_date <- as.Date(merged_2019$incident_date)
+merged_2020$incident_date <- as.Date(merged_2020$incident_date)
+merged_2021$incident_date <- as.Date(merged_2021$incident_date)
+merged_2022$incident_date <- as.Date(merged_2022$incident_date)
+
+# Create year month column
+merged_2018$year_month <- format(merged_2018$incident_date, "%Y-%m")
+merged_2019$year_month <- format(merged_2019$incident_date, "%Y-%m")
+merged_2020$year_month <- format(merged_2020$incident_date, "%Y-%m")
+merged_2021$year_month <- format(merged_2021$incident_date, "%Y-%m")
+merged_2022$year_month <- format(merged_2022$incident_date, "%Y-%m")
+
+# Create year column
+merged_2018$year <- format(merged_2018$incident_date, "%Y")
+merged_2019$year <- format(merged_2019$incident_date, "%Y")
+merged_2020$year <- format(merged_2020$incident_date, "%Y")
+merged_2021$year <- format(merged_2021$incident_date, "%Y")
+merged_2022$year <- format(merged_2022$incident_date, "%Y")
+
+# Create month column
+merged_2018$month <- format(merged_2018$incident_date, "%m")
+merged_2019$month <- format(merged_2019$incident_date, "%m")
+merged_2020$month <- format(merged_2020$incident_date, "%m")
+merged_2021$month <- format(merged_2021$incident_date, "%m")
+merged_2022$month <- format(merged_2022$incident_date, "%m")
+
+```
+
+```{r}
+# Cities that are included in all years
+int1 <- intersect(merged_2018$ADDRESS_CITY,
+          merged_2019$ADDRESS_CITY) %>% intersect(merged_2020$ADDRESS_CITY) %>% intersect(merged_2021$ADDRESS_CITY) %>% intersect(merged_2022$ADDRESS_CITY)
+```
+
+```{r}
+# Looking at top cities for crime for the entire year
+sorted_2018 <- merged_2018 %>% group_by(year,ADDRESS_CITY) %>% summarize(num_murder = n()) %>% arrange(-num_murder) 
+
+sorted_2019 <- merged_2019 %>% group_by(year,ADDRESS_CITY) %>% summarize(num_murder = n()) %>% arrange(-num_murder) 
+
+sorted_2020 <- merged_2020 %>% group_by(year,ADDRESS_CITY) %>% summarize(num_murder = n()) %>% arrange(-num_murder) 
+
+sorted_2021 <- merged_2021 %>% group_by(year,ADDRESS_CITY) %>% summarize(num_murder = n()) %>% arrange(-num_murder) 
+
+sorted_2022 <- merged_2022 %>% group_by(year,ADDRESS_CITY) %>% summarize(num_murder = n()) %>% arrange(-num_murder) 
+
+```
+
+```{r}
+# Sort 2020 data and assign ranks based on number of murders
+sorted_2020 <- sorted_2020 %>%
+  arrange(desc(num_murder)) %>%
+  mutate(rank = row_number())
+
+# Divide the cities into three groups based on their ranks
+num_cities <- nrow(sorted_2020)
+# Integer division to determine group size
+group_size <- num_cities %/% 3  
+
+city_totals_2020 <- sorted_2020 %>%
+  mutate(group = case_when(
+    # All cities 1 - 466 (group size) will be assigned to the most murders group
+    rank <= group_size ~ "Most Murders",
+    # Get group with least murders - think of this as taking the bottom third of the data
+    rank > num_cities - group_size ~ "Least Murders",
+    # All other cities assigned to the middle group
+    TRUE ~ "Middle"
+  ))
+
+# View the resulting data frame with cities grouped for 2020
+print(city_totals_2020)
+
+```
+
+
+```{r}
+#Overall trend of all cities that are in int1
+YM_2018 <- merged_2018 %>% filter(ADDRESS_CITY %in% int1) %>% group_by(year,month) %>% summarize(num_murder = n()) 
+YM_2019 <- merged_2019 %>% filter(ADDRESS_CITY %in% int1) %>% group_by(year,month) %>% summarize(num_murder = n()) 
+YM_2020 <- merged_2020 %>% filter(ADDRESS_CITY %in% int1) %>% group_by(year,month) %>% summarize(num_murder = n()) 
+YM_2021 <- merged_2021 %>% filter(ADDRESS_CITY %in% int1) %>%  group_by(year,month) %>% summarize(num_murder = n()) 
+YM_2022 <- merged_2022 %>% filter(ADDRESS_CITY %in% int1) %>% group_by(year,month) %>% summarize(num_murder = n()) 
+
+all_joined_overall <- rbind(YM_2018,YM_2019,YM_2020,YM_2021,YM_2022)
+
+save(all_joined_overall, file ="../data/all_joined_overall.rds")
+
+all_joined %>% 
+  ggplot(aes(x = month,y = num_murder, group = year)) +
+  geom_line(aes(color = year))
+
+```
+
+```{r}
+#By city
+YM_2018 <- merged_2018 %>% filter(ADDRESS_CITY %in% int1) %>% group_by(ADDRESS_CITY,year_month) %>% summarize(num_murder = n()) 
+YM_2019 <- merged_2019 %>% filter(ADDRESS_CITY %in% int1) %>% group_by(ADDRESS_CITY,year_month) %>% summarize(num_murder = n()) 
+YM_2020 <- merged_2020 %>% filter(ADDRESS_CITY %in% int1) %>% group_by(ADDRESS_CITY,year_month) %>% summarize(num_murder = n()) 
+YM_2021 <- merged_2021 %>% filter(ADDRESS_CITY %in% int1) %>%  group_by(ADDRESS_CITY,year_month) %>% summarize(num_murder = n()) 
+YM_2022 <- merged_2022 %>% filter(ADDRESS_CITY %in% int1) %>% group_by(ADDRESS_CITY,year_month) %>% summarize(num_murder = n()) 
+
+all_joined <- rbind(YM_2018,YM_2019,YM_2020,YM_2021,YM_2022) 
+
+save(all_joined, file = "../data/all_joined_by_city.rds")
+
+all_joined %>% 
+  ggplot(aes(x = num,y = num_murder)) +
+  geom_point() + geom_smooth()
+
+
+# add covid line
+# facet for top 10 cities, geom vline for covid
+
+```
+
+
+```{r}
+library(tidycensus)
+census_api_key("aa5ff0c4c7a7ea56db3bafe255b0ee1c6733786e")
+
+
+city_pop <- 2018:2022 %>% 
+  map(\(x) get_acs(geography = "place",
+                   year = x,
+                   survey = "acs5",
+                   variables = "B01003_001"))
+names(city_pop) <- 2018:2022
+
+bind_rows(city_pop, .id = "year") %>% view()
+
+library(janitor)
+bind_rows(city_pop, .id = "year") %>% 
+  janitor::clean_names() %>% 
+  separate(name, sep = ", ", into = c("city", "state")) %>% 
+  mutate(city = str_to_lower(city),
+         state = str_to_lower(state)) %>% View()
+
+# left join on state and str detect the city 
+# left join on state, complementary match on city
+
+
+``` 
+
+
+
+
+
+
+
+
