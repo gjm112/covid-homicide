@@ -93,6 +93,13 @@ merged_2020$month <- format(merged_2020$incident_date, "%m")
 merged_2021$month <- format(merged_2021$incident_date, "%m")
 merged_2022$month <- format(merged_2022$incident_date, "%m")
 
+merged <- rbind(merged_2018,
+                            merged_2019,
+                            merged_2020,
+                            merged_2021,
+                            merged_2022)
+
+save(merged, file ="./data/merged.rds")
 ```
 
 ```{r}
@@ -196,6 +203,8 @@ all_joined %>% filter(ADDRESS_CITY %in% c("RICHMOND","MILWAUKEE","DENVER","MEMPH
 ```
 
 
+
+<!-- Lily code below here -->
 ```{r}
 #What else is available in the census ACS data set.  
 library(tidycensus)
@@ -211,25 +220,59 @@ names(city_pop) <- 2018:2022
 
 bind_rows(city_pop, .id = "year") %>% View()
 
+
 library(janitor)
-bind_rows(city_pop, .id = "year") %>% 
+
+
+# Cleaning up ORI_data column names
+ORI_data <- ORI_data %>% janitor::clean_names()
+
+# Adding necessary leading 0's to fstate
+# F state has 2 digits
+ORI_data$fstate <- as.character(ORI_data$fstate)
+# Add leading 0 if length is 1
+ORI_data$fstate_padded <- ifelse(nchar(ORI_data$fstate) == 1, paste0("0",ORI_data$fstate), as.character(ORI_data$fstate))
+
+# Adding necessary leading 0's to fplace
+# F place has  5 digits - include leading 0s
+ORI_data$fplace <- as.character(ORI_data$fplace)
+# Find fplace lengths
+ORI_data_mod <- ORI_data %>% mutate(fplace_lengths = nchar(as.character(ORI_data$fplace)),
+                                num_zeros = ifelse(fplace_lengths < 5, 5 - fplace_lengths, 0),
+                                fplace_padded = paste0(strrep("0",num_zeros),fplace),
+                                geoid = paste0(fstate_padded,fplace_padded))
+
+all_joined <- all_joined %>% janitor::clean_names()
+
+city_pop[['2018']]$year <- 2018
+for (i in 2018:2022){
+  city_pop[[as.character(i)]]$year <- i
+}
+
+city_pop_stack <- bind_rows(city_pop, .id = "year") %>% 
   janitor::clean_names() %>% 
   separate(name, sep = ", ", into = c("city", "state")) %>% 
   mutate(city = str_to_lower(city),
-         state = str_to_lower(state)) %>% View()
+         state = str_to_lower(state)) 
 
-# left join on state and str detect the city 
-# left join on state, complementary match on city
+city_pop_stack$year <- as.character(city_pop_stack$year)
+library(lubridate)
+all_combined <- all_joined %>% left_join(ORI_data_mod, by = "address_city") %>% separate(year_month, into = c("year","month"), sep = "\\-") %>% left_join(city_pop_stack, by = c("geoid","year"))
 
+# mutate to get rates 
+all_combined <- all_combined %>% mutate(murder_rate = num_murder/estimate)
 
-#times series with a jump for covid.  
-#Seasonality
+save(all_combined, file = "../COVID_Project/data/data_with_rates.rds")
+
 ``` 
 
 
+<!-- # left join on state and str detect the city  -->
+<!-- # left join on state, complementary match on city -->
 
 
-
+<!-- #times series with a jump for covid.   -->
+<!-- #Seasonality -->
 
 
 

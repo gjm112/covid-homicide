@@ -16,6 +16,7 @@ library(tidyverse)
 library(readr)
 library(lubridate)
 
+#Figure out which cities are reporting all 60 months in this data set by looking at was ANYTHING reported in a given month. 
 covid_2018 <- read_rds("../data/nibrs_offense_segment_2018.rds")
 covid_2019 <- read_rds("../data/nibrs_offense_segment_2019.rds")
 covid_2020 <- read_rds("../data/nibrs_offense_segment_2020.rds")
@@ -150,9 +151,14 @@ all_joined_overall <- rbind(YM_2018,YM_2019,YM_2020,YM_2021,YM_2022)
 
 save(all_joined_overall, file ="../data/all_joined_overall.rds")
 
-all_joined %>% 
+
+load("../data/all_joined_overall.rds")
+library(tidyverse)
+all_joined_overall %>% 
   ggplot(aes(x = month,y = num_murder, group = year)) +
   geom_line(aes(color = year))
+
+
 
 ```
 
@@ -173,13 +179,22 @@ all_joined %>%
   geom_point() + geom_smooth()
 
 
+load("../data/all_joined_by_city.rds")
+
 # add covid line
 # facet for top 10 cities, geom vline for covid
+#Report rates of murder by 100,000
+
+all_joined %>% filter(ADDRESS_CITY %in% c("RICHMOND","MILWAUKEE","DENVER","MEMPHIS")) %>% 
+  ggplot(aes(x = year_month,y = num_murder, group = ADDRESS_CITY)) +
+  geom_point() + geom_smooth() + facet_wrap(~ADDRESS_CITY) + geom_vline(xintercept = "2020-03")
+
 
 ```
 
 
 ```{r}
+#What else is available in the census ACS data set.  
 library(tidycensus)
 census_api_key("aa5ff0c4c7a7ea56db3bafe255b0ee1c6733786e")
 
@@ -204,6 +219,8 @@ bind_rows(city_pop, .id = "year") %>%
 # left join on state, complementary match on city
 
 
+#times series with a jump for covid.  
+#Seasonality
 ``` 
 
 
