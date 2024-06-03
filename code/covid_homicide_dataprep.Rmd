@@ -122,9 +122,9 @@ merged <- rbind(merged_2018,
                             merged_2021,
                             merged_2022)
 
-save(merged, file ="./data/merged.rds")
+save(merged, file ="../data/merged.rds")
 
-load("./data/merged.rds")
+load("../data/merged.rds")
 
 #Group merged data by geoid
 #Check that geoid is a unique city
@@ -172,13 +172,23 @@ merged_by_geoid_with_pop <- merged_by_geoid %>% separate(year_month, into = c("y
 
 save(merged_by_geoid_with_pop, file = "./data/merged_by_geoid_with_pop.rds")
 
+load("../data/merged_by_geoid_with_pop.rds")
 
 #Aggregate by address city
-merged_by_geoid_with_pop %>% group_by(year, month,address_city, state.x) %>% summarize(sum())
-
+merged_by_geoid_with_pop_agg <- merged_by_geoid_with_pop %>% group_by(year, month,address_city, state.x, state.y) %>% summarize(num_murders = sum(num_murders))
 
 
 ``` 
+```{r}
+cities <- read.csv("../data/cities2022.csv")
+midsize <- cities  %>% filter(rank >= 68 & rank <= 134) %>% rename(State = State.a.) %>% mutate(City = gsub("\\[[A-z]\\]","",City)) %>%  mutate(City = toupper(City)) 
+
+################################################################
+#When you filter here you can't just filter on city because cities can occur in multiple states!
+################################################################
+merged_by_geoid_with_pop_agg %>% filter(address_city %in% midsize) %>% group_by(address_city, state.x) %>% summarize(n = n()) %>% arrange(-n)
+
+```
 
 
 ```{r}
