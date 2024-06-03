@@ -172,15 +172,37 @@ merged_by_geoid_with_pop <- merged_by_geoid %>% separate(year_month, into = c("y
 
 save(merged_by_geoid_with_pop, file = "./data/merged_by_geoid_with_pop.rds")
 
+
+#Aggregate by address city
+merged_by_geoid_with_pop %>% group_by(year, month,address_city, state.x) %>% summarize(sum())
+
+
+
 ``` 
 
 
-<!-- # left join on state and str detect the city  -->
-<!-- # left join on state, complementary match on city -->
+```{r}
+merged_by_geoid_with_pop %>% group_by(year, geoid, address_city) %>% summarize(n= sum(num_murders)) %>% arrange(-n) 
+
+merged %>% filter(address_city == "HOUSTON") %>% group_by(incident_number) %>% summarize(n=n())  %>% arrange(-n) 
+
+merged_by_geoid_with_pop %>% group_by(year, geoid, address_city) %>% summarize(n= sum(num_murders)) %>% arrange(-n) %>% filter(geoid == 4835000)
+
+merged_by_geoid_with_pop %>% filter(geoid == 4835000)
+merged_by_geoid_with_pop %>% filter(geoid == 4899201)
+
+merged %>% filter(address_city == "CHICAGO")
+
+merged %>% filter(address_city == "MEMPHIS") %>% group_by(geoid) %>% summarize(n = n())
+
+merged_by_geoid_with_pop %>% group_by(geoid, year, address_city) %>% summarize(n = n()) %>% ungroup() %>% group_by(geoid, address_city) %>% summarize(n = n()) %>% arrange(-n)
+
+merged_by_geoid_with_pop %>% filter(geoid == 4835000) %>% ggplot(aes(x = make_date(year,month), y = num_murders)) + geom_path()
+merged_by_geoid_with_pop %>% filter(geoid == 4835000) %>% arrange(year,month) %>% View()
 
 
-<!-- #times series with a jump for covid.   -->
-<!-- #Seasonality -->
+test <- merged_by_geoid_with_pop %>% filter(geoid == 4835000) %>% arrange(year,month) %>% ungroup() %>% mutate(I_covid = ifelse(make_date(year,month) > make_date("2020","03"),1,0)) 
 
-
-
+a <- lm(murder_rate ~ factor(month) + I_covid, data = test)
+summary(a)
+plot(a)
